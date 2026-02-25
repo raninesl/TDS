@@ -39,30 +39,47 @@ export default function CartPage() {
   useEffect(() => {
     const slugs = Array.from(new Set(items.map((it) => it.slug)));
     if (slugs.length === 0) return;
+
     let cancelled = false;
 
     (async () => {
       setLoadingMeta(true);
       try {
         const entries = await Promise.all(
-          slugs.map(async (slug) => {
+          slugs.map(async (slug): Promise<[string, ProductMeta]> => {
             try {
               const full = await apiGet<FullProductResponse>(`/products/${slug}/full`);
+
               const fromImagesTable =
                 (full.images ?? [])
                   .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
                   .map((im) => im.url)[0] ?? null;
+
               const fallback = full.product.images?.[0] ?? null;
               const first = fromImagesTable || fallback;
+
+              // ✅ IMPORTANT: pas de "as const" ici, sinon images: [] devient readonly []
               return [
                 slug,
-                { slug, images: first ? [first] : [], category: full.product.category },
-              ] as const;
+                {
+                  slug,
+                  images: first ? [first] : [],
+                  category: full.product.category,
+                },
+              ];
             } catch {
-              return [slug, { slug, images: [], category: null }] as const;
+              return [
+                slug,
+                {
+                  slug,
+                  images: [],
+                  category: null,
+                },
+              ];
             }
           })
         );
+
         if (!cancelled) {
           const rec: Record<string, ProductMeta> = {};
           for (const [slug, meta] of entries) rec[slug] = meta;
@@ -166,19 +183,20 @@ export default function CartPage() {
             const meta = metaBySlug[it.slug];
             const thumb = meta?.images?.[0];
             const line = lineTotals.find((l) => l.id === it.productId)?.total ?? 0;
+
             return (
               <li key={it.productId} className="card grid grid-cols-[96px_1fr_auto] gap-4">
                 <Link href={`/shop/${it.slug}`} className="block">
-              {thumb ? (
-                <Image
-                  unoptimized
-                  src={thumb}
-                  alt={it.name}
-                  width={96}
-                  height={96}
-                  className="w-24 h-24 object-cover rounded"
-                />
-              ) : (
+                  {thumb ? (
+                    <Image
+                      unoptimized
+                      src={thumb}
+                      alt={it.name}
+                      width={96}
+                      height={96}
+                      className="w-24 h-24 object-cover rounded"
+                    />
+                  ) : (
                     <div className="w-24 h-24 bg-gray-100 rounded" />
                   )}
                 </Link>
@@ -201,6 +219,7 @@ export default function CartPage() {
                     >
                       −
                     </button>
+
                     <input
                       className="input w-16 text-center"
                       type="number"
@@ -208,6 +227,7 @@ export default function CartPage() {
                       value={it.quantity}
                       onChange={(e) => setQty(it.productId, Number(e.target.value))}
                     />
+
                     <button
                       className="btn"
                       onClick={() => setQty(it.productId, it.quantity + 1)}
@@ -226,9 +246,7 @@ export default function CartPage() {
                 </div>
 
                 <div className="text-right">
-                  <p className="font-semibold">
-                    {(line / 100).toFixed(2)} €
-                  </p>
+                  <p className="font-semibold">{(line / 100).toFixed(2)} €</p>
                 </div>
               </li>
             );
@@ -243,9 +261,11 @@ export default function CartPage() {
               {(totalCents / 100).toFixed(2)} {currency === "EUR" ? "€" : currency}
             </p>
           </div>
+
           <p className="text-xs text-gray-600">
             Les frais et taxes éventuels seront confirmés lors du paiement sécurisé.
           </p>
+
           <button
             type="button"
             className={`btn btn-primary w-full ${creating ? "opacity-60" : ""}`}
@@ -254,9 +274,11 @@ export default function CartPage() {
           >
             {creating ? "Redirection..." : "Payer (Stripe)"}
           </button>
+
           <Link className="btn w-full" href="/shop">
             Continuer vos achats
           </Link>
+
           {loadingMeta && <p className="text-xs text-gray-600">Chargement des visuels…</p>}
         </aside>
       </div>

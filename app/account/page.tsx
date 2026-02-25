@@ -25,6 +25,7 @@ export default function AccountPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [canResend, setCanResend] = useState(false);
 
   useEffect(() => {
     // Charger cooldown éventuel (anti-spam reset password)
@@ -149,11 +150,15 @@ export default function AccountPage() {
       }
 
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          const status = (error as unknown as { status?: number }).status;
+          const m = (error as Error).message ?? "";
+          if (status === 400 && m.toLowerCase().includes("invalid login credentials")) {
+            setCanResend(true);
+          }
+          throw error;
+        }
 
         setMsg("Connexion réussie ✅");
         router.push("/");
@@ -188,6 +193,29 @@ export default function AccountPage() {
       } else {
         setMsg(message);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendActivation = async () => {
+    if (!email.trim()) {
+      setMsg("Email requis pour renvoyer l’activation.");
+      return;
+    }
+    setLoading(true);
+    setMsg("");
+    setCanResend(false);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+      });
+      if (error) throw error;
+      setMsg("Email d’activation renvoyé ✅ Vérifie ta boîte mail.");
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : "Erreur renvoi email.");
     } finally {
       setLoading(false);
     }
@@ -287,8 +315,10 @@ export default function AccountPage() {
       )}
 
       <button
-        className={`btn btn-primary w-full ${loading || secondsLeft > 0 ? "opacity-60" : ""}`}
-        disabled={loading || secondsLeft > 0}
+        className={`btn btn-primary w-full ${
+          loading || (mode === "forgot" && secondsLeft > 0) ? "opacity-60" : ""
+        }`}
+        disabled={loading || (mode === "forgot" && secondsLeft > 0)}
         onClick={submit}
         type="button"
       >
@@ -302,6 +332,16 @@ export default function AccountPage() {
             : "Envoyer email"
           : "Se connecter"}
       </button>
+      {mode === "login" && canResend && (
+        <button
+          className={`btn w-full ${loading ? "opacity-60" : ""}`}
+          disabled={loading}
+          onClick={resendActivation}
+          type="button"
+        >
+          Renvoyer l’email d’activation
+        </button>
+      )}
 
       {msg && (
         <p className={`text-sm ${msg.includes("✅") ? "text-green-700" : "text-red-600"}`}>

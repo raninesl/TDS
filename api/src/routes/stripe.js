@@ -16,23 +16,28 @@ router.post("/checkout", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Cart items required" });
     }
 
+    // ✅ Base URL stable pour les redirections Stripe
+    const baseUrl =
+      process.env.FRONTEND_PUBLIC_URL ||
+      process.env.FRONTEND_URL ||
+      "http://localhost:3000";
+
     // 1) Créer une commande PENDING en DB
     const totalCents = items.reduce((s, it) => s + it.priceCents * it.quantity, 0);
-    const currency = "EUR";
 
     const { data: order, error: orderError } = await supabaseService
-  .from("orders")
-  .insert({
-    user_id: userId,
-    status: "PENDING",
-    total_cents: totalCents,
-    currency: "EUR",
-    shipping_name: shipping?.name ?? null,
-    shipping_phone: shipping?.phone ?? null,
-    shipping_address: shipping?.address ?? null,
-  })
-  .select("id")
-  .single();
+      .from("orders")
+      .insert({
+        user_id: userId,
+        status: "PENDING",
+        total_cents: totalCents,
+        currency: "EUR",
+        shipping_name: shipping?.name ?? null,
+        shipping_phone: shipping?.phone ?? null,
+        shipping_address: shipping?.address ?? null,
+      })
+      .select("id")
+      .single();
 
     if (orderError) return res.status(400).json({ error: orderError.message });
 
@@ -53,7 +58,7 @@ router.post("/checkout", requireAuth, async (req, res) => {
       price_data: {
         currency: "eur",
         product_data: { name: it.name },
-        unit_amount: it.priceCents, // centimes
+        unit_amount: it.priceCents,
       },
       quantity: it.quantity,
     }));
@@ -61,15 +66,14 @@ router.post("/checkout", requireAuth, async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items,
-      // utile : retrouver la commande dans le webhook
       metadata: { orderId: order.id },
-      success_url: `${process.env.FRONTEND_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/payment/cancel?order_id=${order.id}`,
+      success_url: `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/payment/cancel?order_id=${order.id}`,
     });
 
     return res.json({ ok: true, url: session.url, orderId: order.id });
   } catch (e) {
-    return res.status(400).json({ error: e.message || "Stripe error" });
+    return res.status(400).json({ error: e?.message || "Stripe error" });
   }
 });
 

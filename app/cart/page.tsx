@@ -32,8 +32,14 @@ export default function CartPage() {
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [metaBySlug, setMetaBySlug] = useState<Record<string, ProductMeta>>({});
   const [loadingMeta, setLoadingMeta] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const currency = items[0]?.currency ?? "EUR";
+
+  // Éviter mismatch SSR/CSR: attendre le montage client avant d'afficher le contenu dépendant du localStorage/contexte
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Charger les vignettes produit (images[0]) pour chaque slug présent dans le panier
   useEffect(() => {
@@ -45,7 +51,9 @@ export default function CartPage() {
     (async () => {
       setLoadingMeta(true);
       try {
-        const entries = await Promise.all(
+        // ✅ IMPORTANT : on force entries à être Array<[string, ProductMeta]>
+        // et on N'UTILISE PAS "as const" (sinon [] devient readonly [])
+        const entries: Array<[string, ProductMeta]> = await Promise.all(
           slugs.map(async (slug): Promise<[string, ProductMeta]> => {
             try {
               const full = await apiGet<FullProductResponse>(`/products/${slug}/full`);
@@ -58,7 +66,6 @@ export default function CartPage() {
               const fallback = full.product.images?.[0] ?? null;
               const first = fromImagesTable || fallback;
 
-              // ✅ IMPORTANT: pas de "as const" ici, sinon images: [] devient readonly []
               return [
                 slug,
                 {
@@ -128,9 +135,18 @@ export default function CartPage() {
   };
 
   if (items.length === 0) {
+  if (!mounted) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold">Panier</h1>
+      </div>
+    );
+  }
+
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold">Panier</h1>
+
 
         {orderMsg && (
           <div className="card">

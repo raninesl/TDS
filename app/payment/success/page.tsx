@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/components/cart/CartContext";
 
-export default function PaymentSuccessPage() {
+function Content() {
   const sp = useSearchParams();
   const sessionId = sp.get("session_id");
   const { clear } = useCart();
@@ -31,5 +31,13 @@ useEffect(() => {
         Voir mes commandes
       </Link>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div className="text-gray-600">Chargement…</div>}>
+      <Content />
+    </Suspense>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function PaymentCancelPage() {
+function Content() {
   const sp = useSearchParams();
   const orderId = sp.get("order_id");
 
@@ -19,5 +20,13 @@ export default function PaymentCancelPage() {
         Retour au panier
       </Link>
     </div>
+  );
+}
+
+export default function PaymentCancelPage() {
+  return (
+    <Suspense fallback={<div className="text-gray-600">Chargement…</div>}>
+      <Content />
+    </Suspense>
   );
 }

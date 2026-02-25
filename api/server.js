@@ -26,9 +26,18 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, cb) => {
-      // autorise les requêtes sans "origin" (ex: curl, server-to-server)
       if (!origin) return cb(null, true);
-      if (allowedOrigins.includes(origin)) return cb(null, true);
+
+      const allowed = [
+        process.env.FRONTEND_URL,  // ton domaine “prod”
+        "http://localhost:3000",
+      ].filter(Boolean);
+
+      // ✅ accepte le domaine prod + toutes les previews Vercel
+      if (allowed.includes(origin) || origin.endsWith(".vercel.app")) {
+        return cb(null, true);
+      }
+
       return cb(new Error(`CORS blocked for origin: ${origin}`), false);
     },
     credentials: true,

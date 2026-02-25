@@ -49,9 +49,14 @@ app.use(
  * Le webhook doit recevoir le body RAW avant express.json()
  * et souvent sur un path dédié (ex: /api/stripe/webhook)
  */
-app.use("/api/stripe", express.raw({ type: "application/json" }), stripeWebhookRouter);
+// ✅ Webhook Stripe : RAW uniquement ici
+app.use(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhookRouter
+);
 
-// JSON parser pour le reste
+// ✅ JSON parser pour toutes les autres routes
 app.use(express.json());
 
 // Routes
